@@ -7,7 +7,6 @@ def handle_client(client_socket, username):
     print(f"Nova conexão: {username}")
     list_clients [username] = client_socket
     list_clients [client_socket] = username
-    print(f"N: {list_clients}")
 
     while True:
         try:
@@ -37,5 +36,3 @@ while True:
     client_socket, address = server_socket.accept()
     username = client_socket.recv(1024).decode('utf-8')
     threading.Thread(target=handle_client, args=(client_socket, username)).start()
-
-
