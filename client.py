@@ -18,13 +18,19 @@ def main():
 
     threading.Thread(target=receive_messages, args=(client_socket,)).start()
 
-    print("Com quem dejesa falar?")
-    user = input()
-
     while True:
+
+        print("Com quem dejesa falar?")
+        user = input()
         client_socket.send(user.encode('utf-8'))
-        message = input()
-        client_socket.send(message.encode('utf-8'))
+
+        while True:
+            message = input()
+            if message == "SAIR":
+                client_socket.send(message.encode('utf-8'))
+                break
+            else:
+                client_socket.send(message.encode('utf-8'))
 
 if __name__ == "__main__":
     main()
