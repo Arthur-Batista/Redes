@@ -1,39 +1,50 @@
 import socket
 import threading
+from auth import authenticate
 
 # Dicionários para mapear usuários e sockets
 clients_by_username = {}
 clients_by_socket = {}
 
+# Lista de usuários e senhas
+user_credentials = {
+    "usuario1": "senha1",
+    "usuario2": "senha2",
+    "admin": "admin123"
+}
+
 # Função para lidar com cada cliente
 def handle_client(client_socket):
     try:
-        # Receber o nome de usuário
-        username = client_socket.recv(1024).decode('utf-8')
-        if not username:
-            print("Conexão recusada: nome de usuário inválido.")
+        # Etapa de autenticação
+        credentials = client_socket.recv(1024).decode('utf-8')
+        is_authenticated, username = authenticate(credentials, user_credentials)
+
+        if not is_authenticated:
+            client_socket.send("FALHA".encode('utf-8'))
             client_socket.close()
             return
-        
+
+        client_socket.send("SUCESSO".encode('utf-8'))
+
         # Registrar cliente
-        print(f"Nova conexão: {username}")
+        print(f"Nova conexão autenticada: {username}")
         clients_by_username[username] = client_socket
         clients_by_socket[client_socket] = username
-        
-        #Recebendo usuário de destino
-        usersendr = client_socket.recv(1024).decode('utf-8')
-        # Loop para receber mensagens
+
+        # Recebendo usuário de destino
         while True:
-            message = client_socket.recv(1024).decode('utf-8')
-            
-            if message == "SAIR":
-                usersendr = client_socket.recv(1024).decode('utf-8')
-                continue
-            
-            print(f"Mensagem recebida de {username}: {message}")
-            
-            # Redirecionar mensagem
-            broadcast(message, usersendr, username)
+            usersendr = client_socket.recv(1024).decode('utf-8')
+
+            while True:
+                message = client_socket.recv(1024).decode('utf-8')
+                if message == "SAIR":
+                    break
+
+                print(f"Mensagem recebida de {username}: {message}")
+
+                # Redirecionar mensagem
+                broadcast(message, usersendr, username)
     except Exception as e:
         print(f"Erro com cliente {clients_by_socket.get(client_socket, 'desconhecido')}: {e}")
         remove_client(client_socket)

@@ -13,14 +13,25 @@ def receive_messages(sock):
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect(('127.0.0.1', 12345))  # Conecta ao servidor
+
+    # Etapa de autenticação
     username = input("Digite seu nome de usuário: ")
-    client_socket.send(username.encode('utf-8'))
+    password = input("Digite sua senha: ")
+    client_socket.send(f"{username}:{password}".encode('utf-8'))
+
+    # Verificar se a autenticação foi bem-sucedida
+    auth_response = client_socket.recv(1024).decode('utf-8')
+    if auth_response != "SUCESSO":
+        print("Autenticação falhou. Encerrando a conexão.")
+        client_socket.close()
+        return
+
+    print("Autenticação bem-sucedida!")
 
     threading.Thread(target=receive_messages, args=(client_socket,)).start()
 
     while True:
-
-        print("Com quem dejesa falar?")
+        print("Com quem deseja falar?")
         user = input()
         client_socket.send(user.encode('utf-8'))
 
