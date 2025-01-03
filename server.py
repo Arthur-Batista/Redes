@@ -1,10 +1,12 @@
 import socket
 import threading
 from auth import authenticate
+from crypto import generate_key, encrypt_message, decrypt_message
 
-# Dicionários para mapear usuários e sockets
+# Dicionários para mapear usuários, sockets e chaves
 clients_by_username = {}
 clients_by_socket = {}
+keys_by_username = {}
 
 # Lista de usuários e senhas
 user_credentials = {
@@ -25,49 +27,45 @@ def handle_client(client_socket):
             client_socket.close()
             return
 
-        client_socket.send("SUCESSO".encode('utf-8'))
+        # Gerar e enviar chave AES para o cliente
+        key = generate_key()
+        keys_by_username[username] = key
+        client_socket.send(key)
 
         # Registrar cliente
         print(f"Nova conexão autenticada: {username}")
         clients_by_username[username] = client_socket
         clients_by_socket[client_socket] = username
 
-        # Recebendo usuário de destino
         while True:
-            usersendr = client_socket.recv(1024).decode('utf-8')
+            encrypted_data = client_socket.recv(1024).decode('utf-8')
+            data = decrypt_message(key, encrypted_data)
 
-            while True:
-                message = client_socket.recv(1024).decode('utf-8')
-                if message == "SAIR":
-                    break
-
-                print(f"Mensagem recebida de {username}: {message}")
-
-                # Redirecionar mensagem
-                broadcast(message, usersendr, username)
+            # Tratamento de mensagem
+            if data == "SAIR":
+                break
+            recipient, message = data.split(":", 1)
+            broadcast(message, recipient, username)
     except Exception as e:
         print(f"Erro com cliente {clients_by_socket.get(client_socket, 'desconhecido')}: {e}")
+    finally:
         remove_client(client_socket)
 
-# Função para enviar mensagem para um cliente específico
+# Enviar mensagem criptografada para um cliente específico
 def broadcast(message, recipient, sender):
-    try:
-        if recipient in clients_by_username:
-            recipient_socket = clients_by_username[recipient]
-            full_message = f"{sender}: {message}"
-            recipient_socket.send(full_message.encode('utf-8'))
-            print(f"Mensagem enviada para {recipient}: {message}")
-        else:
-            print(f"Usuário {recipient} não encontrado.")
-    except Exception as e:
-        print(f"Erro ao enviar mensagem para {recipient}: {e}")
+    if recipient in clients_by_username:
+        recipient_socket = clients_by_username[recipient]
+        recipient_key = keys_by_username[recipient]
+        encrypted_message = encrypt_message(recipient_key, f"{sender}: {message}")
+        recipient_socket.send(encrypted_message.encode('utf-8'))
+    else:
+        print(f"Usuário {recipient} não encontrado.")
 
-# Função para remover cliente das listas
-def remove_client(client_socket, username=None):
-    if not username:
-        username = clients_by_socket.get(client_socket)
-    if username in clients_by_username:
+def remove_client(client_socket):
+    username = clients_by_socket.get(client_socket)
+    if username:
         del clients_by_username[username]
+        del keys_by_username[username]
     if client_socket in clients_by_socket:
         del clients_by_socket[client_socket]
     client_socket.close()
@@ -78,7 +76,6 @@ server_socket.bind(('0.0.0.0', 12345))
 server_socket.listen(5)
 print("Servidor aguardando conexões...")
 
-# Loop para aceitar conexões
 while True:
     client_socket, address = server_socket.accept()
     print(f"Conexão recebida de {address}")
