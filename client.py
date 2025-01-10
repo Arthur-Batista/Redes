@@ -22,7 +22,7 @@ def main():
     if action == "CADASTRAR":
         username = input("Escolha um nome de usuário: ")
         password = input("Escolha uma senha: ")
-        # Envia o nome de usuário
+        # Envia o nome de usuário.
         client_socket.send(username.encode('utf-8'))  
         response = client_socket.recv(1024).decode('utf-8')  # Espera confirmação ou solicitação para senha
 
